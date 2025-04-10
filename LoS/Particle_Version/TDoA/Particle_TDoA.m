@@ -57,12 +57,16 @@ timeOfArrival2 = [0 6 12 18 24 30];
 initialPosition2 = [10 5 -3.0];
 
 % UAVTag 객체 생성
-tag1 = UAVTag_Hybrid(1, Scenario, initialPosition1, waypoints1, timeOfArrival1);
-tag2 = UAVTag_Hybrid(2, Scenario, initialPosition2, waypoints2, timeOfArrival2);
+tag1 = UAVTag_ParticleTDoA(1, Scenario, initialPosition1, waypoints1, timeOfArrival1);
+tag2 = UAVTag_ParticleTDoA(2, Scenario, initialPosition2, waypoints2, timeOfArrival2);
 
 % 파티클 필터 초기화 (각 태그에 500개의 파티클 사용)
 tag1.initParticleFilter(500);
 tag2.initParticleFilter(500);
+
+% TWR비활성화
+tag1.TWREnabled = false;
+tag2.TWREnabled = false;
 
 % 배열로 관리
 tags = [tag1, tag2];
@@ -118,13 +122,13 @@ while true
 end
 
 %% 결과 분석
-fprintf('\n===== 하이브리드 TDoA-TWR 시뮬레이션 결과 =====\n');
+fprintf('\n===== 파티클 필터 TDoA 시뮬레이션 결과 =====\n');
 
 % 기본 통계 출력
 for i = 1:length(tags)
     stats = tags(i).getStats();
     
-    fprintf('\n태그 %d 위치 추정 통계 (하이브리드 TDoA-TWR):\n', tags(i).ID);
+    fprintf('\n태그 %d 위치 추정 통계 (Particle Filter TDoA):\n', tags(i).ID);
     fprintf('  평균 오차: %.3f 미터\n', stats.MeanError);
     fprintf('  최대 오차: %.3f 미터\n', stats.MaxError);
     fprintf('  최소 오차: %.3f 미터\n', stats.MinError);
@@ -135,7 +139,7 @@ for i = 1:length(tags)
 end
 
 % 시간에 따른 위치 추정 오차 그래프 (각 태그별로)
-figure('Name', '하이브리드 TDoA-TWR 위치 추정 오차');
+figure('Name', 'Particle Filter TDoA 위치 추정 오차');
 for i = 1:length(tags)
     subplot(length(tags), 1, i);
     
@@ -143,7 +147,7 @@ for i = 1:length(tags)
     if ~isempty(tags(i).PositionErrors) && any(~isnan(tags(i).PositionErrors))
         % 오차 그래프 
         % plot(tags(i).TDoAData.EstimatedTime, tags(i).PositionErrors, 'LineWidth', 1.5);
-        plot(tags(i).TDoAData.EstimatedTime, tags(i).PositionErrors, 'Color', [1, 0, 0], 'LineWidth', 1.5);
+        plot(tags(i).TDoAData.EstimatedTime, tags(i).PositionErrors, 'Color', [0, 1, 0], 'LineWidth', 1.5);
 
         % y축 범위 설정
         max_error = max(tags(i).PositionErrors(~isnan(tags(i).PositionErrors))) * 1.1;
@@ -154,7 +158,7 @@ for i = 1:length(tags)
         text(0.5, 0.5, '데이터가 충분하지 않습니다', 'HorizontalAlignment', 'center');
     end
     
-    title(sprintf('태그 %d - Hybrid 위치 추정 오차', tags(i).ID));
+    title(sprintf('태그 %d - Particle Filter TDoA 위치 추정 오차', tags(i).ID));
     xlabel('시간 (초)');
     ylabel('오차 (m)');
     grid on;
@@ -205,7 +209,7 @@ grid on;
 xlabel('동쪽 (m)'); 
 ylabel('북쪽 (m)'); 
 zlabel('높이 (m)');
-title('하이브리드 TDoA-TWR 기반 다중 UAV 위치추적 결과');
+title('Particle Filter TDoA 기반 UAV 위치추적 결과');
 legend('show', 'Location', 'best');
 axis equal;
 xlim([0 15]);
