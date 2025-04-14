@@ -134,8 +134,16 @@ classdef UAVTag_Hybrid < handle
             obj.LastTwrRequestTime = -1;
         end
         
-        function processStep(obj, t, anchorModels, anchorPositions, referenceAnchorIdx, otherTags)
-            % 기존 processStep 함수 확장
+        function processStep(obj, t, anchorModels, anchorPositions, referenceAnchorIdx, otherTags, obstacles)
+            % 시뮬레이션의 한 스텝 처리
+            %
+            % 입력:
+            %   t                  - 현재 시뮬레이션 시간 (초)
+            %   anchorModels       - 앵커 UWB 센서 모델 셀 배열
+            %   anchorPositions    - 앵커 위치 행렬 (각 행은 [x, y, z])
+            %   referenceAnchorIdx - 기준 앵커 인덱스 (TDoA 계산용)
+            %   otherTags          - 다른 태그 드론 객체 배열
+            %   obstacles          - 장애물 구조체 배열 (NLoS 효과용)
             
             % 현재 드론 위치 가져오기
             [txPos, ~, ~, ~, ~] = lookupPose(obj.Platform.Trajectory, t);
@@ -150,8 +158,8 @@ classdef UAVTag_Hybrid < handle
                 fprintf('태그 %d 블링크: ID=%d, 위치=[%.2f, %.2f, %.2f]\n', ...
                        obj.ID, blinkData.BlinkID, blinkData.Position(1), blinkData.Position(2), blinkData.Position(3));
                 
-                % 앵커에서의 신호 수신 처리
-                validReceptions = obj.processAnchorsReception(t, blinkData, anchorModels, anchorPositions);
+                % 앵커에서의 신호 수신 처리 - obstacles 매개변수 전달
+                validReceptions = obj.processAnchorsReception(t, blinkData, anchorModels, anchorPositions, obstacles);
                 
                 % 모든 앵커가 신호를 수신했는지 확인
                 if validReceptions == length(anchorModels)
@@ -159,7 +167,7 @@ classdef UAVTag_Hybrid < handle
                     obj.processTDoAWithParticleFilter(t, txPos, anchorPositions, referenceAnchorIdx, otherTags);
                     
                     % TWR 처리 (다른 드론과 거리 측정)
-                    if obj.TWREnabled && (t - obj.LastTwrRequestTime) > 0.1 % 500ms 간격으로 TWR 수행
+                    if obj.TWREnabled && (t - obj.LastTwrRequestTime) > 0.1 % 100ms 간격으로 TWR 수행
                         obj.processTWR(t, otherTags);
                         obj.LastTwrRequestTime = t;
                     end
@@ -392,60 +400,73 @@ classdef UAVTag_Hybrid < handle
             end
         end
         
-        function validCount = processAnchorsReception(obj, t, blinkData, anchorModels, anchorPositions)
-            % 앵커에서의 신호 수신 처리
+        function validCount = processAnchorsReception(obj, t, blinkData, anchorModels, anchorPositions, obstacles)
+            % Process signal reception at anchors with NLoS effects
             %
-            % 입력:
-            %   t               - 현재 시간 (초)
-            %   blinkData       - 전송된 블링크 데이터
-            %   anchorModels    - 앵커 UWB 센서 모델 셀 배열
-            %   anchorPositions - 앵커 위치 행렬
+            % Inputs:
+            %   t               - Current time (seconds)
+            %   blinkData       - Transmitted blink data
+            %   anchorModels    - Array of anchor UWB sensor models
+            %   anchorPositions - Matrix of anchor positions
+            %   obstacles       - Array of obstacle structures (optional)
             %
-            % 출력:
-            %   validCount - 유효한 수신이 이루어진 앵커 수
+            % Outputs:
+            %   validCount - Number of anchors that successfully received the signal
             
             validCount = 0;
             
             for i = 1:length(anchorModels)
                 try
-                    % 해당 앵커의 센서 모델 사용
+                    % Get sensor model for this anchor
                     sensorModel = anchorModels{i};
-                    receivedSignal = sensorModel.simulateReception(blinkData.Position, blinkData, anchorPositions(i,:), t);
                     
-                    % 신호 검출 임계값 확인
+                    % Simulate reception with NLoS effects if obstacles are provided
+                    if nargin >= 6 && ~isempty(obstacles)
+                        receivedSignal = sensorModel.simulateReception(blinkData.Position, blinkData, anchorPositions(i,:), t, obstacles);
+                    else
+                        receivedSignal = sensorModel.simulateReception(blinkData.Position, blinkData, anchorPositions(i,:), t);
+                    end
+                    
+                    % Check if signal was detected
                     if receivedSignal.RSSI > sensorModel.DetectionThreshold
-                        % 신호 검출 성공
+                        % Signal detection successful
                         obj.CurrentReceptions.ArrivalTime(i) = receivedSignal.ArrivalTime;
                         obj.CurrentReceptions.Valid(i) = true;
                         validCount = validCount + 1;
                         
-                        % 전체 시뮬레이션 데이터에 저장
+                        % Store reception data
                         newReception = struct('Time', t, ...
                             'ArrivalTime', receivedSignal.ArrivalTime, ...
                             'RSSI', receivedSignal.RSSI, ...
                             'BlinkID', blinkData.BlinkID);
                         
-                        % NLoS 상태 저장 (있는 경우)
+                        % Store NLoS status (if available)
                         if isfield(receivedSignal, 'IsNLoS')
                             newReception.IsNLoS = receivedSignal.IsNLoS;
+                            
+                            % Log NLoS detection
+                            if receivedSignal.IsNLoS
+                                fprintf('앵커 %d -> 태그 %d: NLoS 상태 감지됨 (RSSI: %.2f dBm)\n', ...
+                                    i, obj.ID, receivedSignal.RSSI);
+                            end
                         else
                             newReception.IsNLoS = false;
                         end
                         
-                        % 앵커 수신 데이터 저장
+                        % Save reception data to anchor history
                         if isempty(obj.TDoAData.AnchorReceptions{i})
                             obj.TDoAData.AnchorReceptions{i} = newReception;
                         else
                             obj.TDoAData.AnchorReceptions{i}(end+1) = newReception;
                         end
                     else
-                        % 신호 검출 실패
+                        % Signal detection failed
                         obj.CurrentReceptions.Valid(i) = false;
                         fprintf('앵커 %d: 태그 %d 신호 검출 실패 (RSSI: %.2f dBm, 임계값: %.2f dBm)\n', ...
                             i, obj.ID, receivedSignal.RSSI, sensorModel.DetectionThreshold);
                     end
                 catch e
-                    % 예외 처리
+                    % Exception handling
                     fprintf('앵커 %d: 태그 %d 신호 수신 오류: %s\n', i, obj.ID, e.message);
                     obj.CurrentReceptions.Valid(i) = false;
                 end

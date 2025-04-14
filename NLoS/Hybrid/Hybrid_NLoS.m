@@ -30,7 +30,7 @@ for i = 1:5
     
     % 앵커에 UWB 수신기 장착
     sensorModel = uavUWB(i, 'rx'); % 센서 모델 생성
-    sensorModel.DetectionThreshold = -100; % 매우 낮게 설정하여 항상 검출되도록
+    sensorModel.DetectionThreshold = -120; % 매우 낮게 설정하여 항상 검출되도록
     anchorSensorModels{i} = sensorModel; % 센서 모델 저장
     uwb_i = uavSensor('UWB', anchor_i, sensorModel);
     
@@ -64,16 +64,22 @@ for i = 1:size(ObstaclePositions,1)
     [0 ObstacleHeight]}, 0.651*ones(1,3));
 end
 
+obstacles = struct();
+for i = 1:size(ObstaclePositions, 1)
+    obstacles(i).position = [ObstaclePositions(i, 1), ObstaclePositions(i, 2), ObstaclePositions(i, 3)];
+    obstacles(i).dimensions = [ObstaclesWidthX, ObstaclesWidthY, ObstacleHeight];
+end
+
 %% 태그 드론 생성 (UAVTag 클래스 사용)
 % 첫 번째 태그 드론의 경로 정의
 waypoints1 = [12.5 12.5 -1.0; 7.5 12.5 -2.0; 2.5 12.5 -3.0; 2.5 7.5 -3.5; 7.5 7.5 -4.0; 12.5 7.5 -4.5];
 timeOfArrival1 = [0 6 12 18 24 30];
-initialPosition1 = [12.5 12.5 -3.0];
+initialPosition1 = [12.5 12.5 -1.0];
 
 % 두 번째 태그 드론의 경로 정의
 waypoints2 = [2.5 2.5 -2.0; 7.5 2.5 -2.5; 12.5 2.5 -3.0; 12.5 7.5 -3.5; 7.5 7.5 -4.0; 2.5 7.5 -4.5];
 timeOfArrival2 = [0 6 12 18 24 30];
-initialPosition2 = [10 5 -3.0];
+initialPosition2 = [2.5 2.5 -2.0];
 
 % UAVTag 객체 생성
 tag1 = UAVTag_Hybrid(1, Scenario, initialPosition1, waypoints1, timeOfArrival1);
@@ -113,8 +119,8 @@ while true
     
     % 각 태그 드론 처리
     for i = 1:length(tags)
-        % otherTags 매개변수 추가
-        tags(i).processStep(t, anchorSensorModels, anchorPositions, referenceAnchorIdx, tags);
+        % otherTags 매개변수와 obstacles 추가
+        tags(i).processStep(t, anchorSensorModels, anchorPositions, referenceAnchorIdx, tags, obstacles);
     end
     
     % 주기적으로 시나리오 시각화 업데이트

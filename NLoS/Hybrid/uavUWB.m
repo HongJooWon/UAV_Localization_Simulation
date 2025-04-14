@@ -176,6 +176,100 @@ classdef uavUWB < uav.SensorAdaptor
                 sensorData = 0;  % 아무 일도 없음
             end
         end
+
+        function [isNLoS, additionalDelay, additionalAttenuation] = checkNLoS(obj, transmitterPos, receiverPos, obstacles)
+            % Check if there's a non-line-of-sight condition between transmitter and receiver
+            % 
+            % Inputs:
+            %   transmitterPos - 3D position of the transmitter [x, y, z]
+            %   receiverPos   - 3D position of the receiver [x, y, z]
+            %   obstacles     - Array of obstacle structures with fields:
+            %                   - position: [x, y, z] center position
+            %                   - dimensions: [width_x, width_y, height] dimensions
+            % 
+            % Outputs:
+            %   isNLoS        - Boolean indicating if there's an obstacle in the path
+            %   additionalDelay - Additional signal delay due to NLoS (seconds)
+            %   additionalAttenuation - Additional signal attenuation due to NLoS (dB)
+            
+            % Default return values
+            isNLoS = false;
+            additionalDelay = 0;
+            additionalAttenuation = 0;
+            
+            % Direction vector from transmitter to receiver
+            direction = receiverPos - transmitterPos;
+            distance = norm(direction);
+            direction = direction / distance; % Normalize to unit vector
+            
+            % Check intersection with each obstacle
+            for i = 1:length(obstacles)
+                obstacle = obstacles(i);
+                
+                % Get obstacle dimensions and position
+                pos = obstacle.position;
+                dim = obstacle.dimensions;
+                
+                % Calculate obstacle boundaries
+                minBound = pos - dim/2;
+                maxBound = pos + dim/2;
+                
+                % Ray-box intersection algorithm
+                t_min = -Inf;
+                t_max = Inf;
+                
+                % Check intersection along each axis
+                for axis = 1:3
+                    if abs(direction(axis)) < 1e-6
+                        % Ray is parallel to this axis-aligned plane
+                        if transmitterPos(axis) < minBound(axis) || transmitterPos(axis) > maxBound(axis)
+                            % Ray origin is outside the slab, so no intersection
+                            continue;
+                        end
+                    else
+                        % Compute intersection with the two planes perpendicular to the current axis
+                        t1 = (minBound(axis) - transmitterPos(axis)) / direction(axis);
+                        t2 = (maxBound(axis) - transmitterPos(axis)) / direction(axis);
+                        
+                        % Ensure t1 <= t2
+                        if t1 > t2
+                            temp = t1;
+                            t1 = t2;
+                            t2 = temp;
+                        end
+                        
+                        % Update interval
+                        t_min = max(t_min, t1);
+                        t_max = min(t_max, t2);
+                        
+                        if t_min > t_max
+                            % No intersection with this obstacle
+                            continue;
+                        end
+                    end
+                end
+                
+                % Check if intersection point is along the segment between transmitter and receiver
+                if t_min <= distance && t_max >= 0
+                    isNLoS = true;
+                    
+                    % Calculate additional attenuation based on material (concrete-like)
+                    % Typically 10-30 dB for a concrete wall at UWB frequencies
+                    materialAttenuation = 15; % dB
+                    additionalAttenuation = materialAttenuation;
+                    
+                    % Calculate additional delay
+                    % Signal travels slower through materials (concrete has ~n=2.5)
+                    materialIndex = 2.5; 
+                    penetrationDistance = min(dim); % Use minimum dimension as wall thickness
+                    timeInMaterial = penetrationDistance * materialIndex / physconst('LightSpeed');
+                    timeInAir = penetrationDistance / physconst('LightSpeed');
+                    additionalDelay = timeInMaterial - timeInAir;
+                    
+                    break; % Stop checking after finding first obstacle
+                end
+            end
+        end
         
         function [isTransmitting, blinkData] = processTransmission(obj, platform, t)
             %processTransmission Handle UWB signal transmission
@@ -297,14 +391,31 @@ classdef uavUWB < uav.SensorAdaptor
             end
         end
         
-        function receivedSignal = simulateReception(obj, transmitterPos, txData, receiverPos, currentTime)
-            %simulateReception Simulate signal propagation and reception
-        
+        function receivedSignal = simulateReception(obj, transmitterPos, txData, receiverPos, currentTime, obstacles)
+            % simulateReception Simulate signal propagation and reception with NLoS effects
+            %
+            % Inputs:
+            %   transmitterPos - Position of the transmitter
+            %   txData        - Transmitted signal data
+            %   receiverPos   - Position of the receiver
+            %   currentTime   - Current simulation time
+            %   obstacles     - Array of obstacle structures (optional)
+            
             % Calculate distance
             distance = norm(transmitterPos - receiverPos);
             
-            % Calculate propagation delay
-            propDelay = distance / physconst('LightSpeed');
+            % Initialize NLoS variables
+            isNLoS = false;
+            additionalDelay = 0;
+            additionalAttenuation = 0;
+            
+            % Check for NLoS conditions if obstacles are provided
+            if nargin >= 6 && ~isempty(obstacles)
+                [isNLoS, additionalDelay, additionalAttenuation] = obj.checkNLoS(transmitterPos, receiverPos, obstacles);
+            end
+            
+            % Calculate propagation delay (include additional delay if NLoS)
+            propDelay = distance / physconst('LightSpeed') + additionalDelay;
             
             % Add synchronization error if synchronized
             if obj.IsSynchronized
@@ -318,7 +429,8 @@ classdef uavUWB < uav.SensorAdaptor
                                   'BlinkID', txData.BlinkID, ...
                                   'TransmitTime', txData.Timestamp, ...
                                   'ArrivalTime', txData.Timestamp + propDelay + timeError, ...
-                                  'TransmitterPosition', transmitterPos);
+                                  'TransmitterPosition', transmitterPos, ...
+                                  'IsNLoS', isNLoS);
             
             % Calculate received signal strength (simple path loss model)
             % Free space path loss: FSPL(dB) = 20*log10(d) + 20*log10(f) - 147.55
@@ -330,10 +442,12 @@ classdef uavUWB < uav.SensorAdaptor
             pathLoss = 20*log10(distance) + 20*log10(frequency) - 147.55;
             fadingdB = 3 * randn(); % Random fading effect
             
-            % Calculate RSSI
+            % Apply additional attenuation if NLoS
+            totalLoss = pathLoss + additionalAttenuation;
+            
+            % Calculate RSSI (with gain boost for simulation purposes)
             gainBoost = 30;
-    
-            receivedSignal.RSSI = txPower - pathLoss + fadingdB + gainBoost;
+            receivedSignal.RSSI = txPower - totalLoss + fadingdB + gainBoost;
         end
         
         function tdoa = calculateTDOA(obj, referenceDeviceID)
