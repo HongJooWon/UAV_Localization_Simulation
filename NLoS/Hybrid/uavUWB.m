@@ -447,8 +447,7 @@ classdef uavUWB < uav.SensorAdaptor
                         receiverPos(1), receiverPos(2), receiverPos(3));
                 
                 % 선분과 바운딩 박스의 교차 여부 확인
-                [intersects, ~, ~] = obj.rayBoxIntersection(transmitterPos, lineDir, boxMin, boxMax, lineLength);
-
+                [intersects, tmin, tmax] = obj.rayBoxIntersection(transmitterPos, lineDir, boxMin, boxMax, lineLength);
                 fprintf('교차 여부: %d, tmin: %.4f, tmax: %.4f\n', intersects, tmin, tmax);
                 
                 if intersects
@@ -463,7 +462,7 @@ classdef uavUWB < uav.SensorAdaptor
             % 초기 교차 간격
             tmin = 0;
             tmax = maxDist;
-            intersects = true;
+            intersects = false;
             
             % 각 축에 대해 슬랩 교차 테스트
             for i = 1:3
@@ -500,12 +499,19 @@ classdef uavUWB < uav.SensorAdaptor
                     end
                 end
             end
+
+            % After checking all three axes (x, y, z)
+            % If we've made it this far without returning false, and our interval is valid
+            if tmin <= tmax && tmin <= maxDist && tmax >= 0
+                intersects = true;
+            end
             
             % 실제 교차 지점이 선분 범위 내에 있는지 확인
             if tmin > maxDist || tmax < 0
                 intersects = false;
                 fprintf('최종 교차 간격이 선분 범위를 벗어남: tmin=%.4f, tmax=%.4f, maxDist=%.4f\n', ...
                         tmin, tmax, maxDist);
+                return;
             end
         end
         
