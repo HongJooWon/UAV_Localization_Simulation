@@ -50,7 +50,7 @@ ObstaclePositions = [
     11.0 7.5 -1.5;   % 남서쪽 장애물
     4.0 7.5 -3.0    % 북동쪽 장애물
 ];
-ObstaclesWidthX = 1.5;   % X 방향 너비 (가로 길이만 늘림)
+ObstaclesWidthX = 0.8;   % X 방향 너비 (가로 길이만 늘림)
 ObstaclesWidthY = 4.0;   % Y 방향 너비 (기존 유지)
 ObstacleHeight = 4.0;     % 장애물 높이
 
