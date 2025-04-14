@@ -234,9 +234,14 @@ classdef UAVTag_Hybrid < handle
             % TDoA 측정을 기반으로 가중치 업데이트
             for i = 1:obj.NumParticles
                 likelihood = 1;
+                
+                % 파티클 위치
                 particle_pos = obj.Particles(i, :);
+                
+                % 기준 앵커와 파티클 간 거리
                 ref_dist = norm(particle_pos - anchorPositions(referenceAnchorIdx, :));
                 
+                % 각 앵커에 대한 TDoA 우도 계산
                 for a = 1:length(tdoa_values)
                     if a ~= referenceAnchorIdx
                         % 앵커와 파티클 간 거리
@@ -248,26 +253,11 @@ classdef UAVTag_Hybrid < handle
                         % 측정 TDoA
                         measured_tdoa = tdoa_values(a);
                         
-                        % NLoS 상태 확인
-                        isNLoS = false;
-                        if ~isempty(obj.TDoAData.AnchorReceptions{a}) && ...
-                           isfield(obj.TDoAData.AnchorReceptions{a}(end), 'IsNLoS')
-                            isNLoS = obj.TDoAData.AnchorReceptions{a}(end).IsNLoS;
-                        end
-                        
                         % 오차 계산
                         tdoa_error = measured_tdoa - expected_tdoa;
                         
-                        % NLoS 상태에 따른 분산 조정
-                        if isNLoS && isfield(obj.SensorModel, 'NLoSConfig') && ...
-                           isfield(obj.SensorModel.NLoSConfig, 'ErrorVarianceMultiplier')
-                            errorVariance = (5e-9)^2 * obj.SensorModel.NLoSConfig.ErrorVarianceMultiplier;
-                        else
-                            errorVariance = (1e-9)^2;  % 일반 LoS 상태의 분산
-                        end
-                        
-                        % 우도 계산
-                        tdoa_likelihood = exp(-0.5 * (tdoa_error^2 / errorVariance));
+                        % 우도 계산 (가우시안 노이즈 가정)
+                        tdoa_likelihood = exp(-0.5 * (tdoa_error / 1e-9)^2);
                         likelihood = likelihood * tdoa_likelihood;
                     end
                 end
@@ -298,28 +288,16 @@ classdef UAVTag_Hybrid < handle
                     
                     % 다른 드론 위치
                     [otherPos, ~, ~, ~, ~] = lookupPose(otherTag.Platform.Trajectory, t);
-
-                    % NLoS 상태 확인 (이 태그와 다른 태그 사이)
-                    isNLoS = false;
-                    if isfield(obj.SensorModel, 'NLoSConfig') && obj.SensorModel.NLoSConfig.Enabled
-                        isNLoS = obj.SensorModel.checkNLoSCondition(myPos, otherPos);
-                    end
                     
                     % 실제 거리 계산
                     true_distance = norm(myPos - otherPos);
                     
-                    % 측정 노이즈 - NLoS 상태에 따라 다른 오차 모델 적용
-                    if isNLoS
-                        % NLoS 상태에서는 더 큰 오차와 양의 바이어스
-                        measurementNoise = 0.1 * randn() + 0.2;  % 더 큰 노이즈와 양의 바이어스
-                    else
-                        measurementNoise = 0.02 * randn();  % 일반 상태의 노이즈
-                    end
+                    % 측정 노이즈 추가 (TWR은 TDoA보다 더 정확)
+                    measured_distance = true_distance + 0.02 * randn();
                     
-                    measured_distance = true_distance + measurementNoise;
-                                
-                    % TWR 측정 저장 (NLoS 상태 포함)
-                    obj.TwrMeasurements = [obj.TwrMeasurements; otherTag.ID, measured_distance, t, isNLoS];
+                    % TWR 측정 저장
+                    % processTWR 메소드 수정
+                    obj.TwrMeasurements = [obj.TwrMeasurements; otherTag.ID, measured_distance, t];  % 시간 정보 추가
                     
                     fprintf('태그 %d -> 태그 %d TWR 측정: %.2f m (실제: %.2f m)\n', ...
                         obj.ID, otherTag.ID, measured_distance, true_distance);
@@ -336,36 +314,19 @@ classdef UAVTag_Hybrid < handle
                     other_tag_id = obj.TwrMeasurements(j, 1);
                     measured_dist = obj.TwrMeasurements(j, 2);
                     measurement_time = obj.TwrMeasurements(j, 3);  % 측정 시간
-
-                    % NLoS 상태 확인 (TWR 요청/응답 시)
-                    isNLoS = false;
-                    if isfield(obj.TwrMeasurements, 'IsNLoS')
-                        isNLoS = obj.TwrMeasurements(j, 4);  % 4번째 열에 NLoS 상태 저장
-                    end
-
+                    
                     for k = 1:length(otherTags)
                         if otherTags(k).ID == other_tag_id
                             % 측정 시간에 해당하는 다른 드론의 위치 보간
                             other_pos = interpolatePosition(otherTags(k), measurement_time);
                             
                             expected_dist = norm(my_particle_pos - other_pos);
-                            % 오차 계산 및 우도 업데이트
                             twr_error = measured_dist - expected_dist;
-                            
-                            % NLoS 상태에 따른 분산 조정
-                            if isNLoS && isfield(obj.SensorModel, 'NLoSConfig')
-                                errorVariance = 0.1^2 * obj.SensorModel.NLoSConfig.ErrorVarianceMultiplier;
-                            else
-                                errorVariance = 0.05^2;  % 일반 상태의 분산
-                            end
-                            
-                            twr_likelihood = exp(-0.5 * (twr_error^2 / errorVariance));
+                            twr_likelihood = exp(-0.5 * (twr_error / 0.1)^2);
                             likelihood = likelihood * twr_likelihood;
-
                             break;
                         end
                     end
-
                 end
                 
                 obj.ParticleWeights(i) = obj.ParticleWeights(i) * likelihood;
@@ -467,8 +428,6 @@ classdef UAVTag_Hybrid < handle
                         % NLoS 상태 저장 (있는 경우)
                         if isfield(receivedSignal, 'IsNLoS')
                             newReception.IsNLoS = receivedSignal.IsNLoS;
-                            fprintf('[NLoS 수신] 태그 %d -> 앵커 %d 간 NLoS 경로 신호 수신, 시간: %.2f초, RSSI: %.2f dBm\n', ...
-                                obj.ID, i, t, receivedSignal.RSSI);
                         else
                             newReception.IsNLoS = false;
                         end

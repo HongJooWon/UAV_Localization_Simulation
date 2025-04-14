@@ -64,40 +64,6 @@ for i = 1:size(ObstaclePositions,1)
     [0 ObstacleHeight]}, 0.651*ones(1,3));
 end
 
-% ObstaclePositions2 = [
-%     7.5 4 -1.5;   % 남서쪽 장애물
-%     7.5 11 -3.0    % 북동쪽 장애물
-% ];
-% Obstacles2WidthX = 4.0;   % X 방향 너비 (가로 길이만 늘림)
-% Obstacles2WidthY = 1.5;   % Y 방향 너비 (기존 유지)
-% % ObstacleHeight = 4.0;     % 장애물 높이
-% 
-% % 시나리오에 장애물 추가
-% for i = 1:size(ObstaclePositions2,1)
-%     addMesh(Scenario,"polygon", ...
-%     {[ObstaclePositions2(i,1)-Obstacles2WidthX/2 ObstaclePositions2(i,2)-Obstacles2WidthY/2; ...
-%       ObstaclePositions2(i,1)+Obstacles2WidthX/2 ObstaclePositions2(i,2)-Obstacles2WidthY/2; ...
-%       ObstaclePositions2(i,1)+Obstacles2WidthX/2 ObstaclePositions2(i,2)+Obstacles2WidthY/2; ...
-%       ObstaclePositions2(i,1)-Obstacles2WidthX/2 ObstaclePositions2(i,2)+Obstacles2WidthY/2], ...
-%     [0 ObstacleHeight]}, 0.651*ones(1,3));
-% end
-
-%% NLoS 관련 파라미터 설정
-NLoSConfig = struct();
-NLoSConfig.Enabled = true;               % NLoS 기능 활성화
-NLoSConfig.ObstaclePositions = ObstaclePositions;
-NLoSConfig.ObstaclesWidthX = ObstaclesWidthX;  % X 방향
-NLoSConfig.ObstaclesWidthY = ObstaclesWidthY;  % Y 방향
-NLoSConfig.ObstacleHeight = ObstacleHeight;
-NLoSConfig.AdditionalDelay = 2e-9;       % NLoS에 의한 추가 지연 (초)
-NLoSConfig.AttenuationFactor = 10;       % NLoS에 의한 추가 감쇠 (dB)
-NLoSConfig.ErrorVarianceMultiplier = 5;  % NLoS 상태에서 오차 분산 승수
-
-%% 앵커에 NLoS 구성 적용
-for i = 1:length(anchorSensorModels)
-    anchorSensorModels{i}.NLoSConfig = NLoSConfig;
-end
-
 %% 태그 드론 생성 (UAVTag 클래스 사용)
 % 첫 번째 태그 드론의 경로 정의
 waypoints1 = [12.5 12.5 -1.0; 7.5 12.5 -2.0; 2.5 12.5 -3.0; 2.5 7.5 -3.5; 7.5 7.5 -4.0; 12.5 7.5 -4.5];
@@ -112,10 +78,6 @@ initialPosition2 = [10 5 -3.0];
 % UAVTag 객체 생성
 tag1 = UAVTag_Hybrid(1, Scenario, initialPosition1, waypoints1, timeOfArrival1);
 tag2 = UAVTag_Hybrid(2, Scenario, initialPosition2, waypoints2, timeOfArrival2);
-
-%NLoS 구성 적용
-tag1.SensorModel.NLoSConfig = NLoSConfig;
-tag2.SensorModel.NLoSConfig = NLoSConfig;
 
 % 파티클 필터 초기화 (각 태그에 500개의 파티클 사용)
 tag1.initParticleFilter(500);
