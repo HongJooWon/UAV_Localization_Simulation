@@ -381,31 +381,7 @@ classdef UAVTag_TWR < handle
                 stats.Count = 0;
             end
             
-            % 축별 오차 계산 (있는 경우)
-            if ~isempty(obj.TWRData.EstimatedTime)
-                % 추정 시간에 해당하는 실제 위치 찾기
-                interpolatedTagPositions = zeros(length(obj.TWRData.EstimatedTime), 3);
-                for i = 1:length(obj.TWRData.EstimatedTime)
-                    est_time = obj.TWRData.EstimatedTime(i);
-                    [~, idx] = min(abs(obj.TWRData.Time - est_time));
-                    if ~isempty(idx) && idx <= size(obj.TWRData.TagPosition, 1)
-                        interpolatedTagPositions(i, :) = obj.TWRData.TagPosition(idx, :);
-                    end
-                end
-                
-                % 축별 오차
-                xErrors = abs(interpolatedTagPositions(:,1) - obj.TWRData.EstimatedPosition(:,1));
-                yErrors = abs(interpolatedTagPositions(:,2) - obj.TWRData.EstimatedPosition(:,2));
-                zErrors = abs(interpolatedTagPositions(:,3) - obj.TWRData.EstimatedPosition(:,3));
-                
-                stats.MeanXError = mean(xErrors);
-                stats.MeanYError = mean(yErrors);
-                stats.MeanZError = mean(zErrors);
-            else
-                stats.MeanXError = NaN;
-                stats.MeanYError = NaN;
-                stats.MeanZError = NaN;
-            end
+            % 축별 오차 정보 제거 - 전체 오차만 사용
         end
         
         function plotCombinedResults(obj, otherTags, anchorPositions)

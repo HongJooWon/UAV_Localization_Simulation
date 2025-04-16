@@ -123,75 +123,30 @@ for i = 1:length(tags)
     fprintf('  최소 오차: %.3f 미터\n', stats.MinError);
     fprintf('  표준편차: %.3f 미터\n', stats.StdError);
     fprintf('  추정 횟수: %d회\n', stats.Count);
-    fprintf('  축별 평균 오차 - X: %.3f m, Y: %.3f m, Z: %.3f m\n', ...
-        stats.MeanXError, stats.MeanYError, stats.MeanZError);
 end
 
-% 각 태그별 결과 그래프 출력
+%% 시간에 따른 위치 추정 오차 그래프 (각 태그별로)
+figure('Name', 'TWR 위치 추정 오차');
 for i = 1:length(tags)
-    tags(i).plotResults(anchorPositions);
-end
-
-% 모든 태그의 3D 경로를 하나의 그래프에 표시
-figure('Name', '모든 태그 TWR 3D 경로 비교');
-hold on;
-
-% 각 태그 경로 표시
-for i = 1:length(tags)
-    % 각 태그의 TWR 데이터가 있는지 확인
-    if ~isempty(tags(i).TWRData.EstimatedTime) && ~isempty(tags(i).TWRData.TagPosition)
-        % 추정 시간에 해당하는 실제 위치 계산
-        interpolatedTagPositions = zeros(length(tags(i).TWRData.EstimatedTime), 3);
-        for j = 1:length(tags(i).TWRData.EstimatedTime)
-            est_time = tags(i).TWRData.EstimatedTime(j);
-            % 가장 가까운 시간 인덱스 찾기
-            [~, idx] = min(abs(tags(i).TWRData.Time - est_time));
-            if ~isempty(idx) && idx <= size(tags(i).TWRData.TagPosition, 1)
-                interpolatedTagPositions(j, :) = tags(i).TWRData.TagPosition(idx, :);
-            end
+    subplot(length(tags), 1, i);
+    
+    % 오차 데이터가 비어있지 않은지 확인
+    if ~isempty(tags(i).PositionErrors) && any(~isnan(tags(i).PositionErrors))
+        % 오차 그래프 
+        plot(tags(i).TWRData.EstimatedTime, tags(i).PositionErrors, 'b-', 'LineWidth', 1.5);
+        
+        % y축 범위 설정
+        max_error = max(tags(i).PositionErrors(~isnan(tags(i).PositionErrors))) * 1.1;
+        if ~isempty(max_error) && ~isnan(max_error) && max_error > 0
+            ylim([0, max_error]);
         end
         
-        % 태그 ID에 따라 색상 지정
-        if tags(i).ID == 1
-            realColor = 'r'; % 빨간색
-            estColor = 'r--'; % 빨간색 점선
-            realName = '태그 1 실제 경로 (ID: 1)';
-            estName = '태그 1 TWR 추정 경로 (ID: 1)';
-        elseif tags(i).ID == 2
-            realColor = 'g'; % 초록색
-            estColor = 'g--'; % 초록색 점선
-            realName = '태그 2 실제 경로 (ID: 2)';
-            estName = '태그 2 TWR 추정 경로 (ID: 2)';
-        else
-            % 기타 ID에 대한 기본 색상
-            realColor = 'b'; % 파란색
-            estColor = 'b--'; % 파란색 점선
-            realName = sprintf('태그 %d 실제 경로 (ID: %d)', tags(i).ID, tags(i).ID);
-            estName = sprintf('태그 %d TWR 추정 경로 (ID: %d)', tags(i).ID, tags(i).ID);
-        end
-        
-        % 실제 경로와 추정 경로 그리기
-        plot3(interpolatedTagPositions(:,2), interpolatedTagPositions(:,1), -interpolatedTagPositions(:,3), ...
-              realColor, 'LineWidth', 2, 'DisplayName', realName);
-        plot3(tags(i).TWRData.EstimatedPosition(:,2), tags(i).TWRData.EstimatedPosition(:,1), -tags(i).TWRData.EstimatedPosition(:,3), ...
-              estColor, 'LineWidth', 1.5, 'DisplayName', estName);
+        % 그래프 타이틀 설정
+        title(sprintf('태그 %d - TWR 위치 추정 오차', tags(i).ID));
+        xlabel('시간 (초)');
+        ylabel('오차 (m)');
+        grid on;
+    else
+        text(0.5, 0.5, '데이터가 충분하지 않습니다', 'HorizontalAlignment', 'center');
     end
 end
-
-% 앵커 위치 표시
-plot3(anchorPositions(:,2), anchorPositions(:,1), -anchorPositions(:,3), ...
-      'ko', 'MarkerSize', 8, 'MarkerFaceColor', 'k', 'DisplayName', 'UWB 앵커');
-
-% 그래프 설정
-grid on;
-xlabel('동쪽 (m)'); ylabel('북쪽 (m)'); zlabel('높이 (m)');
-title('TWR 기반 다중 UAV 위치추적 결과');
-legend('show', 'Location', 'best');
-axis equal;
-xlim([0 15]);
-ylim([0 15]);
-zlim([0 5]);
-view(45, 30);
-
-% 원하는 경우 태그 객체의 plotCombinedResults 메서드를 사용할 수도 있음
-% tags(1).plotCombinedResults(tags(2:end), anchorPositions);
