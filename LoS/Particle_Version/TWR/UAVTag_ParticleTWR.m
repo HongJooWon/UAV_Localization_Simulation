@@ -196,6 +196,7 @@ classdef UAVTag_ParticleTWR < handle
                         estimated_pos = obj.estimatePositionWithParticleFilter(anchorPositions, obj.MeasuredDistances, t);
                     else
                         % 기존 방식으로 위치 추정
+                        fprintf('파티클 아님\n');
                         estimated_pos = obj.estimatePositionTWR(anchorPositions, obj.MeasuredDistances);
                     end
                     
@@ -215,7 +216,7 @@ classdef UAVTag_ParticleTWR < handle
                         fprintf('  전체 오차: %.2f m\n', error);
                         
                         % 다음 사이클을 위해 거리 재설정
-                        obj.MeasuredDistances = zeros(5, 1);
+                        % obj.MeasuredDistances = zeros(5, 1);
                     end
                 end
             catch e
@@ -290,7 +291,7 @@ classdef UAVTag_ParticleTWR < handle
                         dist_error = measured_dist - theoretical_dist;
                         
                         % 우도 계산 (가우시안 노이즈 가정)
-                        dist_likelihood = exp(-0.5 * (dist_error / 0.05)^2); % 5cm 표준편차 가정
+                        dist_likelihood = exp(-0.5 * (dist_error / 0.1)^2); % 5cm 표준편차 가정
                         likelihood = likelihood * dist_likelihood;
                     end
                 end

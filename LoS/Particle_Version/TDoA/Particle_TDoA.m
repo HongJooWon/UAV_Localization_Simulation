@@ -165,54 +165,54 @@ for i = 1:length(tags)
 end
 
 % 3D 궤적 비교 그래프 (하이브리드 방식)
-figure('Name', '하이브리드 TDoA-TWR 위치 추적 결과');
-hold on;
-
-% 앵커 위치 표시
-plot3(anchorPositions(:,2), anchorPositions(:,1), -anchorPositions(:,3), ...
-      'ko', 'MarkerSize', 8, 'MarkerFaceColor', 'k', 'DisplayName', 'UWB 앵커');
-
-% 각 태그별 실제 궤적과 추정 궤적 표시
-colors = {'r', 'g', 'b', 'm', 'c'};
-markers = {'o', 's', 'd', '^', 'v'};
-
-for i = 1:length(tags)
-    if ~isempty(tags(i).TDoAData.EstimatedTime) && ~isempty(tags(i).TDoAData.TagPosition)
-        % 추정 시간에 해당하는 실제 위치 계산
-        interpolatedTagPositions = zeros(length(tags(i).TDoAData.EstimatedTime), 3);
-        for j = 1:length(tags(i).TDoAData.EstimatedTime)
-            est_time = tags(i).TDoAData.EstimatedTime(j);
-            [~, idx] = min(abs(tags(i).TDoAData.Time - est_time));
-            if ~isempty(idx) && idx <= size(tags(i).TDoAData.TagPosition, 1)
-                interpolatedTagPositions(j, :) = tags(i).TDoAData.TagPosition(idx, :);
-            end
-        end
-        
-        % 실제 궤적
-        plot3(interpolatedTagPositions(:,2), interpolatedTagPositions(:,1), -interpolatedTagPositions(:,3), ...
-              [colors{i}, '-'], 'LineWidth', 2, 'DisplayName', sprintf('태그 %d 실제 경로', tags(i).ID));
-        
-        % 하이브리드 TDoA-TWR 추정 궤적
-        plot3(tags(i).TDoAData.EstimatedPosition(:,2), tags(i).TDoAData.EstimatedPosition(:,1), -tags(i).TDoAData.EstimatedPosition(:,3), ...
-              [colors{i}, '--'], 'LineWidth', 1.5, 'DisplayName', sprintf('태그 %d 하이브리드 추정 경로', tags(i).ID));
-        
-        % 시작점과 끝점 표시
-        plot3(interpolatedTagPositions(1,2), interpolatedTagPositions(1,1), -interpolatedTagPositions(1,3), ...
-              [colors{i}, markers{i}], 'MarkerSize', 10, 'MarkerFaceColor', colors{i}, 'DisplayName', sprintf('태그 %d 시작점', tags(i).ID));
-        plot3(interpolatedTagPositions(end,2), interpolatedTagPositions(end,1), -interpolatedTagPositions(end,3), ...
-              [colors{i}, markers{i}], 'MarkerSize', 10, 'DisplayName', sprintf('태그 %d 종료점', tags(i).ID));
-    end
-end
-
-% 그래프 설정
-grid on;
-xlabel('동쪽 (m)'); 
-ylabel('북쪽 (m)'); 
-zlabel('높이 (m)');
-title('Particle Filter TDoA 기반 UAV 위치추적 결과');
-legend('show', 'Location', 'best');
-axis equal;
-xlim([0 15]);
-ylim([0 15]);
-zlim([0 5]);
-view(45, 30);
+% figure('Name', 'Particle Filter TDoA 위치 추적 결과');
+% hold on;
+% 
+% % 앵커 위치 표시
+% plot3(anchorPositions(:,2), anchorPositions(:,1), -anchorPositions(:,3), ...
+%       'ko', 'MarkerSize', 8, 'MarkerFaceColor', 'k', 'DisplayName', 'UWB 앵커');
+% 
+% % 각 태그별 실제 궤적과 추정 궤적 표시
+% colors = {'r', 'g', 'b', 'm', 'c'};
+% markers = {'o', 's', 'd', '^', 'v'};
+% 
+% for i = 1:length(tags)
+%     if ~isempty(tags(i).TDoAData.EstimatedTime) && ~isempty(tags(i).TDoAData.TagPosition)
+%         % 추정 시간에 해당하는 실제 위치 계산
+%         interpolatedTagPositions = zeros(length(tags(i).TDoAData.EstimatedTime), 3);
+%         for j = 1:length(tags(i).TDoAData.EstimatedTime)
+%             est_time = tags(i).TDoAData.EstimatedTime(j);
+%             [~, idx] = min(abs(tags(i).TDoAData.Time - est_time));
+%             if ~isempty(idx) && idx <= size(tags(i).TDoAData.TagPosition, 1)
+%                 interpolatedTagPositions(j, :) = tags(i).TDoAData.TagPosition(idx, :);
+%             end
+%         end
+% 
+%         % 실제 궤적
+%         plot3(interpolatedTagPositions(:,2), interpolatedTagPositions(:,1), -interpolatedTagPositions(:,3), ...
+%               [colors{i}, '-'], 'LineWidth', 2, 'DisplayName', sprintf('태그 %d 실제 경로', tags(i).ID));
+% 
+%         % 하이브리드 TDoA-TWR 추정 궤적
+%         plot3(tags(i).TDoAData.EstimatedPosition(:,2), tags(i).TDoAData.EstimatedPosition(:,1), -tags(i).TDoAData.EstimatedPosition(:,3), ...
+%               [colors{i}, '--'], 'LineWidth', 1.5, 'DisplayName', sprintf('태그 %d 하이브리드 추정 경로', tags(i).ID));
+% 
+%         % 시작점과 끝점 표시
+%         plot3(interpolatedTagPositions(1,2), interpolatedTagPositions(1,1), -interpolatedTagPositions(1,3), ...
+%               [colors{i}, markers{i}], 'MarkerSize', 10, 'MarkerFaceColor', colors{i}, 'DisplayName', sprintf('태그 %d 시작점', tags(i).ID));
+%         plot3(interpolatedTagPositions(end,2), interpolatedTagPositions(end,1), -interpolatedTagPositions(end,3), ...
+%               [colors{i}, markers{i}], 'MarkerSize', 10, 'DisplayName', sprintf('태그 %d 종료점', tags(i).ID));
+%     end
+% end
+% 
+% % 그래프 설정
+% grid on;
+% xlabel('동쪽 (m)'); 
+% ylabel('북쪽 (m)'); 
+% zlabel('높이 (m)');
+% title('Particle Filter TDoA 기반 UAV 위치추적 결과');
+% legend('show', 'Location', 'best');
+% axis equal;
+% xlim([0 15]);
+% ylim([0 15]);
+% zlim([0 5]);
+% view(45, 30);

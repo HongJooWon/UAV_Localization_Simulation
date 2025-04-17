@@ -134,7 +134,7 @@ for i = 1:length(tags)
     tags(i).plotTimeErrorGraph();
     
     % 현재 파티클 분포 시각화
-    tags(i).plotParticles(anchorPositions);
+    % tags(i).plotParticles(anchorPositions);
 end
 
 % 모든 태그의 결과를 하나의 그래프에 표시
