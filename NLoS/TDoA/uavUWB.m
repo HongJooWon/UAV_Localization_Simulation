@@ -179,6 +179,7 @@ classdef uavUWB < uav.SensorAdaptor
 
         function [isNLoS, additionalDelay, additionalAttenuation] = checkNLoS(obj, transmitterPos, receiverPos, obstacles)
             % Check if there's a non-line-of-sight condition between transmitter and receiver
+            % based on the paper's model with εnlos=2.22 (wooden structure)
             % 
             % Inputs:
             %   transmitterPos - 3D position of the transmitter [x, y, z]
@@ -201,6 +202,11 @@ classdef uavUWB < uav.SensorAdaptor
             direction = receiverPos - transmitterPos;
             distance = norm(direction);
             direction = direction / distance; % Normalize to unit vector
+            
+            % From the paper: εnlos=2.22 for wooden structure
+            epsilon_nlos = 2.22;  
+            % From the paper: attnlos=24.57 dB/m for wooden structure
+            attenuation_nlos = 24.57; % dB/m
             
             % Check intersection with each obstacle
             for i = 1:length(obstacles)
@@ -253,18 +259,15 @@ classdef uavUWB < uav.SensorAdaptor
                 if t_min <= distance && t_max >= 0
                     isNLoS = true;
                     
-                    % Calculate additional attenuation based on material (concrete-like)
-                    % Typically 10-30 dB for a concrete wall at UWB frequencies
-                    materialAttenuation = 15; % dB
-                    additionalAttenuation = materialAttenuation;
-                    
-                    % Calculate additional delay
-                    % Signal travels slower through materials (concrete has ~n=2.5)
-                    materialIndex = 2.5; 
+                    % Calculate penetration distance (wall thickness)
                     penetrationDistance = min(dim); % Use minimum dimension as wall thickness
-                    timeInMaterial = penetrationDistance * materialIndex / physconst('LightSpeed');
-                    timeInAir = penetrationDistance / physconst('LightSpeed');
-                    additionalDelay = timeInMaterial - timeInAir;
+                    
+                    % Calculate additional attenuation (from the paper: attnlos=24.57 dB/m)
+                    additionalAttenuation = attenuation_nlos * penetrationDistance;
+                    
+                    % Calculate additional delay using the formula from the paper:
+                    % Δτ = (√εnlos - 1)dnlos/c
+                    additionalDelay = (sqrt(epsilon_nlos) - 1) * penetrationDistance / physconst('LightSpeed');
                     
                     break; % Stop checking after finding first obstacle
                 end
