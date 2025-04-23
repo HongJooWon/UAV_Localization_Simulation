@@ -57,8 +57,7 @@ results.Hybrid = struct('RunErrors', cell(1, num_runs), 'MeanErrors', zeros(1, n
 function [tag_results] = run_tdoa_simulation(initial_position1, waypoints1, time_of_arrival1, ...
                                             initial_position2, waypoints2, time_of_arrival2, ...
                                             anchor_positions, reference_anchor_idx, ...
-                                            sim_time, update_rate, num_particles, resample_threshold_ratio, ...
-                                            measurement_interval)
+                                            sim_time, update_rate, num_particles, resample_threshold_ratio)
     % 시나리오 생성
     Scenario = uavScenario("StopTime", sim_time, "UpdateRate", update_rate, "MaxNumFrames", 20);
     
@@ -94,10 +93,6 @@ function [tag_results] = run_tdoa_simulation(initial_position1, waypoints1, time
     % 파티클 필터 초기화 및 리샘플링 임계값 설정
     tag1.initParticleFilter(num_particles);
     tag2.initParticleFilter(num_particles);
-
-    % 측위 간격 설정 전달
-    tag1.SensorModel.BlinkInterval = measurement_interval;
-    tag2.SensorModel.BlinkInterval = measurement_interval;
     
     % 리샘플링 임계값 설정 (NumParticles/resample_threshold_ratio)
     % UAVTag_ParticleTDoA 클래스의 resampleParticles 함수에서 
@@ -142,7 +137,7 @@ end
 function [tag_results] = run_twr_simulation(initial_position1, waypoints1, time_of_arrival1, ...
                                            initial_position2, waypoints2, time_of_arrival2, ...
                                            anchor_positions, sim_time, update_rate, ...
-                                           num_particles, resample_threshold_ratio, measurement_interval)
+                                           num_particles, resample_threshold_ratio)
     % 시나리오 생성
     Scenario = uavScenario("StopTime", sim_time, "UpdateRate", update_rate, "MaxNumFrames", 20);
     
@@ -179,10 +174,6 @@ function [tag_results] = run_twr_simulation(initial_position1, waypoints1, time_
     % 파티클 필터 초기화 및 리샘플링 임계값 설정
     tag1.initParticleFilter(num_particles);
     tag2.initParticleFilter(num_particles);
-
-    % 측위 간격 설정 전달
-    tag1.SensorModel.BlinkInterval = measurement_interval;
-    tag2.SensorModel.BlinkInterval = measurement_interval;
     
     % 리샘플링 임계값 설정 (파티클 필터 클래스 내부에서 설정)
     % UAVTag_ParticleTWR 클래스의 resampleParticles 함수에서 
@@ -223,8 +214,7 @@ end
 function [tag_results] = run_hybrid_simulation(initial_position1, waypoints1, time_of_arrival1, ...
                                               initial_position2, waypoints2, time_of_arrival2, ...
                                               anchor_positions, reference_anchor_idx, ...
-                                              sim_time, update_rate, num_particles, resample_threshold_ratio, ...
-                                              measurement_interval)
+                                              sim_time, update_rate, num_particles, resample_threshold_ratio)
     % 시나리오 생성
     Scenario = uavScenario("StopTime", sim_time, "UpdateRate", update_rate, "MaxNumFrames", 20);
     
@@ -260,10 +250,6 @@ function [tag_results] = run_hybrid_simulation(initial_position1, waypoints1, ti
     % 파티클 필터 초기화 및 리샘플링 임계값 설정
     tag1.initParticleFilter(num_particles);
     tag2.initParticleFilter(num_particles);
-
-    % 측위 간격 설정 전달
-    tag1.SensorModel.BlinkInterval = measurement_interval;
-    tag2.SensorModel.BlinkInterval = measurement_interval;
     
     % 리샘플링 임계값 설정
     % UAVTag_Hybrid 클래스의 resampleParticles 함수에서 

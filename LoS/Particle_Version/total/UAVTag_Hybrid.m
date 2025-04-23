@@ -81,8 +81,9 @@ classdef UAVTag_Hybrid < handle
             obj.SensorModel.configureUWB();
             
             % 각 드론마다 블링크 시간을 약간 다르게 설정 (충돌 방지)
-            obj.SensorModel.BlinkInterval = 0.05 + (id * 0.005); % 약간씩 다른 간격
-            obj.SensorModel.LastBlinkTime = -0.1 - (id * 0.05);  % 다른 시작 시간
+            obj.SensorModel.BlinkInterval = measurement_interval;
+            obj.SensorModel.LastBlinkTime = -0.1 - (id * 0.01);
+            obj.LastTwrRequestTime = -0.1 - (id * 0.01);
             
             % UWB 센서 장착
             obj.UWBSensor = uavSensor('UWB', obj.Platform, obj.SensorModel);
@@ -159,7 +160,7 @@ classdef UAVTag_Hybrid < handle
                     obj.processTDoAWithParticleFilter(t, txPos, anchorPositions, referenceAnchorIdx, otherTags);
                     
                     % TWR 처리 (다른 드론과 거리 측정)
-                    if obj.TWREnabled && (t - obj.LastTwrRequestTime) > 0.1 % 500ms 간격으로 TWR 수행
+                    if obj.TWREnabled && (t - obj.LastTwrRequestTime) > measurement_interval
                         obj.processTWR(t, otherTags);
                         obj.LastTwrRequestTime = t;
                     end

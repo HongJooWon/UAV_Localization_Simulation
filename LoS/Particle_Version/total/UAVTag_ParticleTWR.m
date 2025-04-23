@@ -70,9 +70,9 @@ classdef UAVTag_ParticleTWR < handle
             obj.SensorModel.configureUWB();
             
             % TWR 요청 간격 설정 - 각 드론마다 약간 다르게 (충돌 방지)
-            obj.RequestInterval = 0.05;
-            obj.SensorModel.RequestInterval = obj.RequestInterval;
-            obj.LastRequestTime = -0.1 - (id * 0.05);  % 다른 시작 시간
+            obj.RequestInterval = measurement_interval;
+            obj.SensorModel.RequestInterval = measurement_interval;
+            obj.LastRequestTime = -0.1 - (id * 0.01);  % 시작 시간만 차이를 두어 충돌 방지
             
             % UWB 센서 장착
             obj.UWBSensor = uavSensor(['UWB_TWR', num2str(id)], obj.Platform, obj.SensorModel);
