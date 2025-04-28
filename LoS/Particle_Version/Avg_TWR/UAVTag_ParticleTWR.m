@@ -70,9 +70,9 @@ classdef UAVTag_ParticleTWR < handle
             obj.SensorModel.configureUWB();
             
             % TWR 요청 간격 설정 - 각 드론마다 약간 다르게 (충돌 방지)
-            obj.RequestInterval = measurement_interval;
-            obj.SensorModel.RequestInterval = measurement_interval;
-            obj.LastRequestTime = -0.1 - (id * 0.01);  % 시작 시간만 차이를 두어 충돌 방지
+            obj.RequestInterval = 0.05;
+            obj.SensorModel.RequestInterval = obj.RequestInterval;
+            obj.LastRequestTime = -0.1 - (id * 0.05);  % 다른 시작 시간
             
             % UWB 센서 장착
             obj.UWBSensor = uavSensor(['UWB_TWR', num2str(id)], obj.Platform, obj.SensorModel);
@@ -245,9 +245,43 @@ classdef UAVTag_ParticleTWR < handle
             obj.resampleParticles();
             
             % 4. 상태 추정
-            estimated_pos = obj.estimatePosition();
+            topN = ceil(obj.NumParticles * 0.1);
+            estimated_pos = obj.estimatePositionTopN(topN);
             
             return;
+        end
+
+        function pos = estimatePositionTopN(obj, topN)
+            % 상위 N개 파티클만 사용하여 위치 추정
+            %
+            % 입력:
+            %   topN - 사용할 상위 파티클 개수 (기본값: 파티클 총 개수의 10%)
+            %
+            % 출력:
+            %   pos - 추정된 위치 [x, y, z]
+            
+            if nargin < 2
+                topN = ceil(obj.NumParticles * 0.1); % 기본값으로 상위 10% 사용
+            end
+            
+            % 가중치에 따라 파티클 정렬
+            [sorted_weights, indices] = sort(obj.ParticleWeights, 'descend');
+            
+            % 상위 N개만 선택
+            top_indices = indices(1:min(topN, length(indices)));
+            top_particles = obj.Particles(top_indices, :);
+            top_weights = sorted_weights(1:min(topN, length(indices)));
+            
+            % 정규화된 가중치 계산
+            normalized_weights = top_weights / sum(top_weights);
+            
+            % 가중 평균 계산
+            pos = zeros(1, 3);
+            for i = 1:3
+                pos(i) = sum(top_particles(:, i) .* normalized_weights);
+            end
+            
+            fprintf('태그 %d: 상위 %d개 파티클 평균으로 위치 추정\n', obj.ID, min(topN, length(indices)));
         end
         
         function predictParticles(obj, dt)
@@ -541,8 +575,6 @@ classdef UAVTag_ParticleTWR < handle
                 stats.MinError = min(obj.PositionErrors);
                 stats.StdError = std(obj.PositionErrors);
                 stats.Count = length(obj.PositionErrors);
-
-                stats.PositionErrors = obj.PositionErrors;
             else
                 stats.MeanError = NaN;
                 stats.MaxError = NaN;
