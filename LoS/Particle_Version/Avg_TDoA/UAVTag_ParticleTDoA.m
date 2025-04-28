@@ -17,7 +17,7 @@ classdef UAVTag_ParticleTDoA < handle
         PositionErrors      % 위치 추정 오차 기록
         Color               % 시각화를 위한 색상
 
-        % TWR-specific properties
+        % TWR 관련 속성
         TWRData             % TWR 데이터 저장 구조체
         MeasuredDistances   % 각 앵커와의 측정된 거리
         RequestInterval     % TWR 요청 간격
@@ -186,7 +186,7 @@ classdef UAVTag_ParticleTDoA < handle
             obj.resampleParticles();
             
             % 5. 상태 추정
-            topN = ceil(obj.NumParticles * 0.10); % 상위 5% 사용
+            topN = ceil(obj.NumParticles * 0.10); % 상위 10% 사용
             estimated_pos = obj.estimatePositionTopN(topN);
             
             % 위치 추정 결과 저장
